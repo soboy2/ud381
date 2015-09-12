@@ -9,10 +9,16 @@ r = redis.StrictRedis(host='127.0.0.1', port=6379, db=0)
 def event_stream():
     pubsub = r.pubsub()
     pubsub.subscribe('WordCountTopology')
+    # pubsub.subscribe('SentenceCountTopology')
     for message in pubsub.listen():
         print message
         yield 'data: %s\n\n' % message['data']
 
+# def shutdown_server():
+#     func = request.environ.get('werkzeug.server.shutdown')
+#     if func is None:
+#         raise RuntimeError('Not running with the Werkzeug Server')
+#     func()
 
 @app.route('/')
 def show_homepage():
@@ -27,6 +33,12 @@ def show_basic():
 @app.route('/stream')
 def stream():
     return Response(event_stream(), mimetype="text/event-stream")
+
+
+# @app.route('/shutdown')
+# def shutdown():
+#     shutdown_server()
+#     return 'Server shutting down...'
 
 
 if __name__ == '__main__':

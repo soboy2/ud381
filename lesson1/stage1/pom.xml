@@ -86,6 +86,11 @@
     <!--
     COPY AND PASE: lettuce (redis) here: pom.xml file (located lesson1/stage1/pom.xml)
      -->
+    <dependency>
+       <groupId>com.lambdaworks</groupId>
+       <artifactId>lettuce</artifactId>
+       <version>2.3.3</version>
+    </dependency>
   </dependencies>
 
   <build>

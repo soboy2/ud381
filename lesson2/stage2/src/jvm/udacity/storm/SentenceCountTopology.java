@@ -28,24 +28,26 @@ import java.util.Random;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisConnection;
 
+import udacity.storm.spout.RandomSentenceSpout;
+
 /**
- * This topology demonstrates how to count distinct words from
- * a stream of words.
+ * This topology demonstrates how to count distinct sentences from
+ * a stream of sentences.
  *
  * This is an example for Udacity Real Time Analytics Course - ud381
  *
  */
-public class WordCountTopology {
+public class SentenceCountTopology {
 
   /**
    * Constructor - does nothing
    */
-  private WordCountTopology() { }
+  private SentenceCountTopology() { }
 
   /**
-   * A spout that emits a random word
+   * A spout that emits a random sentence
    */
-  static class WordSpout extends BaseRichSpout {
+  static class SentenceSpout extends BaseRichSpout {
 
     // Random number generator
     private Random rnd;
@@ -53,8 +55,8 @@ public class WordCountTopology {
     // To output tuples from spout to the next stage
     private SpoutOutputCollector collector;
 
-    // For storing the list of words to be fed into the topology
-    private String[] wordList;
+    // For storing the list of Sentences to be fed into the topology
+    private String[] sentenceList;
 
     @Override
     public void open(
@@ -69,21 +71,21 @@ public class WordCountTopology {
       // save the output collector for emitting tuples
       collector = spoutOutputCollector;
 
-      // initialize a set of words
-      wordList = new String[]{"Jack", "Mary", "Jill", "McDonald"};
+      // initialize a set of sentences
+      sentenceList = new String[]{"Jack", "Mary", "Jill", "McDonald"};
     }
 
     @Override
     public void nextTuple()
     {
-      // sleep a second before emitting any word
+      // sleep a second before emitting any sentence
       Utils.sleep(1000);
 
-      // generate a random number based on the wordList length
-      int nextInt = rnd.nextInt(wordList.length);
+      // generate a random number based on the sentenceList length
+      int nextInt = rnd.nextInt(sentenceList.length);
 
-      // emit the word chosen by the random number from wordList
-      collector.emit(new Values(wordList[nextInt]));
+      // emit the sentence chosen by the random number from sentenceList
+      collector.emit(new Values(sentenceList[nextInt]));
     }
 
     @Override
@@ -91,20 +93,20 @@ public class WordCountTopology {
         OutputFieldsDeclarer outputFieldsDeclarer)
     {
       // tell storm the schema of the output tuple for this spout
-      // tuple consists of a single column called 'word'
-      outputFieldsDeclarer.declare(new Fields("word"));
+      // tuple consists of a single column called 'sentence'
+      outputFieldsDeclarer.declare(new Fields("sentence"));
     }
   }
 
   /**
-   * A bolt that counts the words that it receives
+   * A bolt that counts the sentences that it receives
    */
   static class CountBolt extends BaseRichBolt {
 
     // To output tuples from this bolt to the next stage bolts, if any
     private OutputCollector collector;
 
-    // Map to store the count of the words
+    // Map to store the count of the sentences
     private Map<String, Integer> countMap;
 
     @Override
@@ -126,26 +128,30 @@ public class WordCountTopology {
     {
       //**************************************************
       //BEGIN YOUR CODE - Part 1-of-3
-      //Check if incoming word is in countMap.  If word does not
-      //exist then add word with count = 1, if word exist then
+      //Check if incoming sentence is in countMap.  If sentence does not
+      //exist then add sentence with count = 1, if sentence exist then
       //increment count.
 
-      //Syntax to get the word from the 1st column of incoming tuple
-      String word = tuple.getString(0);
+      //Syntax to get the sentence from the 1st column of incoming tuple
+      String sentence = tuple.getString(0);
 
-      boolean stringExists = countMap.containsKey(word);
+      // check if the sentence is present in the map
+      if (countMap.get(sentence) == null) {
 
-      if(stringExists){
-        countMap.put(word, countMap.get(word) + 1);
+      // not present, add the sentence with a count of 1
+      countMap.put(sentence, 1);
       } else {
-        countMap.put(word, 1);
-      }
 
+      // already there, hence get the count
+      Integer val = countMap.get(sentence);
 
+      // increment the count and save it to the map
+      countMap.put(sentence, ++val);
+    }
 
-      //After countMap is updated, emit word and count to output collector
-      // Syntax to emit the word and count (uncomment to emit)
-      collector.emit(new Values(word, countMap.get(word)));
+      //After countMap is updated, emit sentence and count to output collector
+      // Syntax to emit the sentence and count (uncomment to emit)
+      collector.emit(new Values(sentence, countMap.get(sentence)));
 
       //END YOUR CODE Part 1-of-3
       //***************************************************
@@ -155,23 +161,23 @@ public class WordCountTopology {
     public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer)
     {
       // tell storm the schema of the output tuple for this spout
-      // tuple consists of a two columns called 'word' and 'count'
+      // tuple consists of a two columns called 'sentence' and 'count'
 
-      // declare the first column 'word', second colmun 'count'
+      // declare the first column 'sentence', second colmun 'count'
 
       //****************************************************
       //BEGIN YOUR CODE - Part 2-of-3
       //uncomment line below to declare output
 
-      outputFieldsDeclarer.declare(new Fields("word","count"));
+      outputFieldsDeclarer.declare(new Fields("sentence","count"));
 
-      //END YOUR CODE - Part 2-of-3
+      //END YOUR CODE Part 2-of-3
       //****************************************************
     }
   }
 
   /**
-   * A bolt that prints the word and count to redis
+   * A bolt that prints the sentence and count to redis
    */
   static class ReportBolt extends BaseRichBolt
   {
@@ -194,14 +200,14 @@ public class WordCountTopology {
     @Override
     public void execute(Tuple tuple)
     {
-      // access the first column 'word'
-      String word = tuple.getStringByField("word");
+      // access the first column 'sentence'
+      String sentence = tuple.getStringByField("sentence");
 
       // access the second column 'count'
       Integer count = tuple.getIntegerByField("count");
 
-      // publish the word count to redis using word as the key
-      redis.publish("WordCountTopology", word + "|" + Long.toString(count));
+      // publish the sentence count to redis using sentence as the key
+      redis.publish("SentenceCountTopology", sentence + "|" + Long.toString(count));
     }
 
     public void declareOutputFields(OutputFieldsDeclarer declarer)
@@ -215,11 +221,11 @@ public class WordCountTopology {
     // create the topology
     TopologyBuilder builder = new TopologyBuilder();
 
-    // attach the word spout to the topology - parallelism of 5
-    builder.setSpout("word-spout", new WordSpout(), 5);
+    // attach the sentence spout to the topology - parallelism of 5
+    builder.setSpout("sentence-spout", new RandomSentenceSpout(), 5);
 
     // attach the count bolt using fields grouping - parallelism of 15
-    builder.setBolt("count-bolt", new CountBolt(), 15).fieldsGrouping("word-spout", new Fields("word"));
+    builder.setBolt("count-bolt", new CountBolt(), 15).fieldsGrouping("sentence-spout", new Fields("sentence"));
 
     // attach the report bolt using global grouping - parallelism of 1
     //***************************************************
@@ -228,8 +234,7 @@ public class WordCountTopology {
     builder.setBolt("report-bolt", new ReportBolt(), 1).globalGrouping("count-bolt");
 
 
-
-    // END YOUR CODE - Part 3-of-3
+    // END YOUR CODE Part 3-of-3
     //***************************************************
 
     // create the default config object
@@ -259,10 +264,12 @@ public class WordCountTopology {
       LocalCluster cluster = new LocalCluster();
 
       // submit the topology to the local cluster
-      cluster.submitTopology("word-count", conf, builder.createTopology());
+      cluster.submitTopology("sentence-count", conf, builder.createTopology());
 
+      //**********************************************************************
       // let the topology run for 30 seconds. note topologies never terminate!
       Thread.sleep(30000);
+      //**********************************************************************
 
       // we are done, so shutdown the local cluster
       cluster.shutdown();
