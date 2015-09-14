@@ -16,6 +16,8 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 
+import udacity.storm.*;
+
 class TweetTopology
 {
   public static void main(String[] args) throws Exception
@@ -43,9 +45,14 @@ class TweetTopology
     //*********************************************************************
     // Complete the Topology.
     // Part 0: attach the tweet spout to the topology - parallelism of 1
+    builder.setSpout("tweet-spout", tweetSpout, 1);
     // Part 1: // attach the parse tweet bolt, parallelism of 10 (what grouping is needed?)
+    builder.setBolt("parse-tweet-bolt", new ParseTweetBolt(), 10).shuffleGrouping("tweet-spout");
     // Part 2: // attach the count bolt, parallelism of 15 (what grouping is needed?)
+    //builder.setBolt("count-bolt", new CountBolt(), 15).fieldsGrouping("parse-tweet-bolt", new Fields("tweet-word"));
+    builder.setBolt("rolling-count-bolt", new RollingCountBolt(30, 10), 15).fieldsGrouping("parse-tweet-bolt", new Fields("tweet-word"));
     // Part 3: attach the report bolt, parallelism of 1 (what grouping is needed?)
+    builder.setBolt("report-bolt", new ReportBolt(), 1).globalGrouping("rolling-count-bolt");
     // Submit and run the topology.
 
 
